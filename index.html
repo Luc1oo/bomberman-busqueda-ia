@@ -1,0 +1,868 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bomberman: Escape Explosivo — DFS, BFS y A*</title>
+<style>
+:root{
+  --bg:#0b0d14;--panel:#161a26;--panel2:#202638;--line:#3b4563;
+  --text:#f7f5ff;--muted:#aaaec2;--accent:#ffd54d;--good:#70e6a7;
+  --bad:#ff7c7c;--blue:#67b7ff;--purple:#b98cff;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:
+    linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px),
+    radial-gradient(circle at 20% 0%,rgba(255,213,77,.07),transparent 35%),
+    #0b0d14;
+  background-size:18px 18px,18px 18px,auto,auto;
+  color:var(--text);
+  font-family:"Courier New",ui-monospace,SFMono-Regular,Consolas,monospace;
+}
+.app{max-width:1240px;margin:auto;padding:14px}
+h1{margin:0 0 4px;font-size:clamp(1.35rem,3.5vw,2.15rem);letter-spacing:.02em}
+.subtitle{margin:0 0 12px;color:var(--muted);font-size:12px;line-height:1.5}
+.topbar{
+  display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:8px;
+  background:rgba(22,26,38,.96);border:2px solid var(--line);border-radius:9px;
+  padding:9px;margin-bottom:10px;box-shadow:0 4px 0 #05060a
+}
+.control{min-width:0}
+.control label,.control .lbl{display:block;font-size:9px;color:var(--muted);margin:0 0 4px;letter-spacing:.05em}
+select,input[type="number"],button{
+  width:100%;min-height:40px;background:var(--panel2);color:var(--text);
+  border:2px solid var(--line);border-radius:5px;padding:6px 8px;
+  font:700 12px "Courier New",monospace
+}
+input[type="range"]{width:100%;accent-color:var(--accent)}
+button{cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:#4a3b08;border-color:#8f7521}
+button.active{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.inline{display:flex;gap:5px}
+.inline button{width:auto;min-width:42px}
+.value-line{display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--muted)}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 345px;gap:12px;align-items:start}
+.card{
+  background:rgba(22,26,38,.97);border:2px solid var(--line);border-radius:9px;
+  padding:10px;box-shadow:0 4px 0 #05060a
+}
+.actions{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:9px}
+.actions button{width:auto;flex:1 1 125px}
+.canvaswrap{background:#07090f;border:3px solid #454f70;border-radius:7px;padding:5px;overflow:hidden}
+canvas{display:block;width:100%;height:auto;image-rendering:pixelated;background:#080a11}
+.legend{display:flex;flex-wrap:wrap;gap:7px 11px;margin-top:8px;color:var(--muted);font-size:10px}
+.legend span{display:flex;align-items:center;gap:4px}
+.sw{width:12px;height:12px;border:1px solid #777;display:inline-block}
+.hud{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:8px}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:7px;text-align:center;min-width:0}
+.stat strong{display:block;font-size:15px;color:var(--accent);overflow-wrap:anywhere}
+.stat small{font-size:8px;color:var(--muted)}
+.msg{min-height:25px;padding-top:7px;font-size:11px;font-weight:700}
+.msg.good{color:var(--good)} .msg.bad{color:var(--bad)}
+.side{display:grid;gap:10px}
+h2{font-size:13px;margin:0 0 7px;color:var(--accent);letter-spacing:.03em}
+p,li{font-size:10.5px;line-height:1.5;color:var(--muted)}
+b{color:var(--text)}
+.note{border-left:3px solid var(--accent);background:#23283a;padding:7px;font-size:10px;color:var(--muted);line-height:1.45}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:9.5px}
+th,td{border-bottom:1px solid var(--line);padding:5px;text-align:center;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted)}
+.live-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:6px}
+.badge{display:inline-block;border:1px solid var(--line);background:var(--panel2);border-radius:999px;padding:3px 6px;color:var(--muted);font-size:9px}
+.frontier-row.next{background:rgba(255,213,77,.12);color:var(--accent)}
+.frontier-row.next td:first-child::before{content:"▶ ";color:var(--accent)}
+.manualbox{margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
+.dpad{display:grid;grid-template-columns:46px 46px 46px;gap:4px;justify-content:center;margin-top:6px}
+.dpad button{min-height:44px;padding:0;font-size:17px}
+.dpad .blank{visibility:hidden}
+.switchline{display:flex;align-items:center;gap:7px;font-size:10px;color:var(--muted);margin-top:6px}
+.switchline input{accent-color:var(--accent)}
+.progress{height:7px;background:#0a0c12;border:1px solid var(--line);border-radius:999px;overflow:hidden;margin-top:5px}
+.progress > span{display:block;height:100%;width:0;background:var(--accent)}
+hr{border:0;border-top:1px solid var(--line);margin:8px 0}
+@media(max-width:1050px){.topbar{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.side{grid-template-columns:1fr 1fr}}
+@media(max-width:650px){
+  .app{padding:8px}.topbar{grid-template-columns:1fr 1fr}.side{grid-template-columns:1fr}
+  .hud{grid-template-columns:1fr 1fr}.hud .stat:last-child{grid-column:1/-1}
+}
+</style>
+</head>
+<body>
+<main class="app">
+  <h1>💣 BOMBERMAN: ESCAPE EXPLOSIVO</h1>
+  <p class="subtitle">
+    Laboratorio de búsqueda inspirado en los arcades clásicos. Genera laberintos con más paredes y corredores,
+    cambia la dificultad y compara DFS, BFS y A*. La misión exige <b>recoger la llave</b> antes de escapar.
+  </p>
+
+  <section class="topbar" aria-label="Configuración del laberinto">
+    <div class="control">
+      <label for="difficulty">DIFICULTAD</label>
+      <select id="difficulty">
+        <option value="easy">Fácil</option>
+        <option value="normal" selected>Normal</option>
+        <option value="hard">Difícil</option>
+      </select>
+    </div>
+    <div class="control">
+      <label for="size">TAMAÑO DEL LABERINTO</label>
+      <select id="size">
+        <option value="small">Pequeño · 15×9</option>
+        <option value="medium" selected>Mediano · 21×13</option>
+        <option value="large">Grande · 31×19</option>
+      </select>
+    </div>
+    <div class="control">
+      <span class="lbl">BOMBAS DEL NIVEL</span>
+      <div id="bombPreset" style="min-height:40px;display:flex;align-items:center;padding:6px 8px;border:2px solid var(--line);border-radius:5px;background:var(--panel2);font-weight:700;font-size:12px">Normal · 14 bombas</div>
+    </div>
+    <div class="control">
+      <label for="speed">VELOCIDAD</label>
+      <select id="speed">
+        <option value="140">Lenta</option>
+        <option value="55" selected>Normal</option>
+        <option value="12">Rápida</option>
+        <option value="1">Turbo</option>
+      </select>
+    </div>
+    <div class="control">
+      <span class="lbl">TIPO DE MAPA</span>
+      <div style="min-height:40px;display:flex;align-items:center;padding:6px 8px;border:2px solid var(--line);border-radius:5px;background:var(--panel2);font-weight:700;font-size:12px">Laberinto cerrado</div>
+    </div>
+    <div class="control">
+      <span class="lbl">MAPA</span>
+      <button id="generate" class="primary" type="button">↻ GENERAR</button>
+    </div>
+  </section>
+
+  <div class="layout">
+    <section class="card">
+      <div class="actions">
+        <select id="algorithm" aria-label="Algoritmo">
+          <option value="dfs">DFS · Pila</option>
+          <option value="bfs">BFS · Cola</option>
+          <option value="astar" selected>A* · Prioridad</option>
+        </select>
+        <button id="run" class="primary" type="button">▶ EJECUTAR</button>
+        <button id="step" type="button">👣 PASO</button>
+        <button id="all" type="button">⚡ CORRER LOS 3</button>
+        <button id="manual" type="button">🎮 MODO MANUAL</button>
+        <button id="reset" type="button">↺ REINICIAR</button>
+      </div>
+
+      <div class="canvaswrap">
+        <canvas id="game" width="900" height="560" aria-label="Laberinto de Bomberman"></canvas>
+      </div>
+
+      <div class="legend">
+        <span><i class="sw" style="background:#1b2232"></i>Piso 1</span>
+        <span><i class="sw" style="background:#9a6b3a"></i>Caja 3</span>
+        <span><i class="sw" style="background:#6d5500"></i>Bomba 4</span>
+        <span><i class="sw" style="background:#8e3125"></i>Explosión 6</span>
+        <span><i class="sw" style="background:#505b78"></i>Pared</span>
+        <span>🔑 Llave</span><span>🚪 Salida</span>
+        <span><i class="sw" style="background:rgba(103,183,255,.55)"></i>Expandido</span>
+        <span><i class="sw" style="background:rgba(255,213,77,.55)"></i>Frontera</span>
+        <span><i class="sw" style="background:rgba(112,230,167,.7)"></i>Camino</span>
+      </div>
+
+      <div class="hud">
+        <div class="stat"><strong id="nodes">0</strong><small>NODOS</small></div>
+        <div class="stat"><strong id="steps">—</strong><small>PASOS</small></div>
+        <div class="stat"><strong id="cost">—</strong><small>COSTO</small></div>
+        <div class="stat"><strong id="time">—</strong><small>TIEMPO ms</small></div>
+        <div class="stat"><strong id="frontierMax">—</strong><small>FRONTERA MÁX.</small></div>
+      </div>
+
+      <div id="message" class="msg" aria-live="polite"></div>
+
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Algoritmo</th><th>Nodos</th><th>Pasos</th><th>Costo</th><th>Tiempo</th><th>Óptimo</th></tr></thead>
+          <tbody id="compare"></tbody>
+        </table>
+      </div>
+
+      <div id="manualPanel" class="manualbox" hidden>
+        <div class="note">
+          <b>Control manual:</b> usa WASD, flechas o los botones. Debes recoger la llave 🔑 antes de entrar a la salida 🚪.
+          Las casillas peligrosas también suman su costo en tu partida.
+        </div>
+        <div class="dpad">
+          <span class="blank"></span><button data-move="-1,0" type="button">▲</button><span class="blank"></span>
+          <button data-move="0,-1" type="button">◀</button><button data-move="1,0" type="button">▼</button><button data-move="0,1" type="button">▶</button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <section class="card">
+        <div class="live-head">
+          <h2>ESTRUCTURA DE DATOS EN VIVO</h2>
+          <span id="structureBadge" class="badge">Cola de prioridad</span>
+        </div>
+        <p id="liveInfo">A* expande el nodo con menor f = g + h.</p>
+        <label class="switchline"><input id="showF" type="checkbox" checked> Mostrar g, h y f</label>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Nodo</th><th class="ghf">g</th><th class="ghf">h</th><th class="ghf">f</th><th>Llave</th></tr></thead>
+            <tbody id="frontierBody"></tbody>
+          </table>
+        </div>
+        <p id="expandedNow" class="note">Aún no se ha expandido ningún nodo.</p>
+      </section>
+
+      <section class="card">
+        <h2>MODELADO</h2>
+        <p><b>Estado:</b> <code>(fila, columna, tieneLlave)</code>.</p>
+        <p><b>Acciones:</b> arriba, abajo, izquierda, derecha.</p>
+        <p><b>Costos:</b> piso 1 · caja 3 · bomba 4 · explosión 6.</p>
+        <p><b>Objetivo:</b> llegar a la salida con la llave.</p>
+        <p><b>Heurística A*:</b> si falta la llave, Manhattan hasta la llave + Manhattan de llave a salida; si ya la tiene, Manhattan hasta la salida.</p>
+        <div class="note">La heurística sigue siendo admisible porque todo movimiento cuesta al menos 1 y Manhattan ignora muros y peligros.</div>
+      </section>
+
+      <section class="card">
+        <h2>MEDIR 5 ESCENARIOS</h2>
+        <p>Genera cinco mapas distintos al azar usando la configuración actual.</p>
+        <button id="benchmark" class="primary" type="button">📊 MEDIR 5 MAPAS</button>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Alg.</th><th>Nodos prom.</th><th>Costo prom.</th><th>Tiempo prom.</th></tr></thead>
+            <tbody id="bench"></tbody>
+          </table>
+        </div>
+        <p id="verdict"></p>
+      </section>
+
+      <section class="card">
+        <h2>TORNEO · 20 MAPAS</h2>
+        <p>Compara eficiencia y optimalidad como en el simulador de Pac-Man.</p>
+        <button id="tournament" type="button">🏆 CORRER TORNEO</button>
+        <div class="progress"><span id="tourProgress"></span></div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Alg.</th><th>Exp. media</th><th>Costo medio</th><th>% óptimo</th><th>Victorias*</th></tr></thead>
+            <tbody id="tourBody"></tbody>
+          </table>
+        </div>
+        <p>*Victoria = algoritmo que expandió menos nodos en ese mapa.</p>
+      </section>
+    </aside>
+  </div>
+</main>
+
+<script>
+(() => {
+"use strict";
+
+const $ = id => document.getElementById(id);
+const cv = $("game"), ctx = cv.getContext("2d");
+const DIRS = [[-1,0],[0,1],[1,0],[0,-1]];
+const SIZE = {
+  small:{cols:15,rows:9},
+  medium:{cols:21,rows:13},
+  large:{cols:31,rows:19}
+};
+const DIFF = {
+  easy:{loops:.18,crate:.05,blastRadius:1,bombs:8,rooms:2},
+  normal:{loops:.12,crate:.09,blastRadius:1,bombs:14,rooms:1},
+  hard:{loops:.07,crate:.14,blastRadius:2,bombs:22,rooms:0}
+};
+const COST = {floor:1,crate:3,bomb:4,blast:6};
+
+let world=null;
+let searchResult=null, animIndex=0, animTimer=null;
+let visited=new Set(), frontierSet=new Set(), pathSet=new Set();
+let human=false, humanPos=null, humanKey=false, humanSteps=0, humanCost=0;
+let currentFrontierPreview=[];
+
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function stateKey(r,c,k){ return `${r},${c},${k?1:0}`; }
+function posKey(r,c){ return `${r},${c}`; }
+function manhattan(a,b){ return Math.abs(a.r-b.r)+Math.abs(a.c-b.c); }
+function label(t){ return t==="astar"?"A*":t.toUpperCase(); }
+
+function mulberry32(seed){
+  let a=seed>>>0;
+  return function(){
+    a|=0; a=(a+0x6D2B79F5)|0;
+    let t=Math.imul(a^(a>>>15),1|a);
+    t=(t+Math.imul(t^(t>>>7),61|t))^t;
+    return ((t^(t>>>14))>>>0)/4294967296;
+  };
+}
+
+function shuffle(arr,rng){
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(rng()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+
+function bfsDistances(grid,start){
+  const q=[start],dist=new Map([[posKey(start.r,start.c),0]]);
+  let qi=0;
+  while(qi<q.length){
+    const n=q[qi++],d=dist.get(posKey(n.r,n.c));
+    for(const [dr,dc] of DIRS){
+      const r=n.r+dr,c=n.c+dc,k=posKey(r,c);
+      if(r<0||c<0||r>=grid.length||c>=grid[0].length||grid[r][c]==="#"||dist.has(k)) continue;
+      dist.set(k,d+1);q.push({r,c});
+    }
+  }
+  return dist;
+}
+
+function generateWorld(){
+  const size=SIZE[$("size").value], diff=DIFF[$("difficulty").value];
+  const rng=Math.random;
+  const rows=size.rows,cols=size.cols;
+  const grid=Array.from({length:rows},()=>Array(cols).fill("#"));
+
+  // 1. Laberinto base conectado con backtracking.
+  const start={r:1,c:1};
+  grid[start.r][start.c]=".";
+  const stack=[start];
+
+  while(stack.length){
+    const cur=stack[stack.length-1];
+    const dirs=shuffle([[-2,0],[0,2],[2,0],[0,-2]],rng);
+    let moved=false;
+    for(const [dr,dc] of dirs){
+      const nr=cur.r+dr,nc=cur.c+dc;
+      if(nr<=0||nc<=0||nr>=rows-1||nc>=cols-1||grid[nr][nc]!=="#") continue;
+      grid[cur.r+dr/2][cur.c+dc/2]=".";
+      grid[nr][nc]=".";
+      stack.push({r:nr,c:nc});
+      moved=true;
+      break;
+    }
+    if(!moved) stack.pop();
+  }
+
+  // 2. Abrimos paredes intermedias para crear ciclos y rutas alternativas.
+  const candidates=[];
+  for(let r=1;r<rows-1;r++)for(let c=1;c<cols-1;c++){
+    if(grid[r][c]!=="#") continue;
+    const horizontal=grid[r][c-1]!=="#"&&grid[r][c+1]!=="#";
+    const vertical=grid[r-1][c]!=="#"&&grid[r+1][c]!=="#";
+    if(horizontal||vertical) candidates.push({r,c});
+  }
+  shuffle(candidates,rng);
+  const openings=Math.floor(candidates.length*diff.loops);
+  for(let i=0;i<openings;i++) grid[candidates[i].r][candidates[i].c]=".";
+
+  // 3. Solo creamos pequeñas cámaras 3x3 ocasionales.
+  // El mapa sigue siendo principalmente un laberinto de corredores y paredes.
+  for(let i=0;i<diff.rooms;i++){
+    const rr=1+2*Math.floor(rng()*Math.max(1,Math.floor((rows-3)/2)));
+    const cc=1+2*Math.floor(rng()*Math.max(1,Math.floor((cols-3)/2)));
+    for(let r=Math.max(1,rr-1);r<=Math.min(rows-2,rr+1);r++){
+      for(let c=Math.max(1,cc-1);c<=Math.min(cols-2,cc+1);c++){
+        // No abrimos toda la cámara: conservamos algunas paredes internas.
+        if(rng()<0.72) grid[r][c]=".";
+      }
+    }
+  }
+
+  // 4. Añadimos solo unos pocos cruces extra para evitar rutas totalmente únicas
+  // sin convertir el mapa en una zona abierta.
+  const floorCells=[];
+  for(let r=1;r<rows-1;r++)for(let c=1;c<cols-1;c++) if(grid[r][c]!== "#") floorCells.push({r,c});
+  shuffle(floorCells,rng);
+  const widenCount=Math.floor(floorCells.length*.025);
+  for(let i=0;i<widenCount;i++){
+    const p=floorCells[i];
+    const dirs=shuffle(DIRS.slice(),rng);
+    const [dr,dc]=dirs[0];
+    const nr=p.r+dr,nc=p.c+dc;
+    if(nr>0&&nc>0&&nr<rows-1&&nc<cols-1) grid[nr][nc]=".";
+  }
+
+  // 5. Elegimos salida y llave usando distancias sobre el mapa ya abierto.
+  const dStart=bfsDistances(grid,start);
+  let exit=start,far=-1;
+  for(const [k,d] of dStart){
+    if(d>far){
+      far=d;
+      const [r,c]=k.split(",").map(Number);
+      exit={r,c};
+    }
+  }
+  const dExit=bfsDistances(grid,exit);
+
+  let keyCell=start,best=-1;
+  for(const [k,ds] of dStart){
+    const de=dExit.get(k)??0;
+    const [r,c]=k.split(",").map(Number);
+    if((r===start.r&&c===start.c)||(r===exit.r&&c===exit.c)) continue;
+    const score=Math.min(ds,de)+0.30*(ds+de);
+    if(score>best){best=score;keyCell={r,c};}
+  }
+
+  // 6. Terrenos y peligros.
+  const terrain=new Map();
+  const open=[];
+  for(let r=1;r<rows-1;r++)for(let c=1;c<cols-1;c++) if(grid[r][c]!=="#") open.push({r,c});
+
+  const reserved=new Set([
+    posKey(start.r,start.c),
+    posKey(exit.r,exit.c),
+    posKey(keyCell.r,keyCell.c)
+  ]);
+
+  for(const p of open){
+    if(reserved.has(posKey(p.r,p.c))) continue;
+    if(rng()<diff.crate) terrain.set(posKey(p.r,p.c),"crate");
+  }
+
+  // La cantidad de bombas depende SOLO de la dificultad.
+  const bombCount=Math.min(diff.bombs,Math.max(0,open.length-3));
+  const bombCandidates=shuffle(open.filter(p=>!reserved.has(posKey(p.r,p.c))),rng);
+  const bombs=[];
+  for(const p of bombCandidates){
+    if(bombs.length>=bombCount) break;
+    const pk=posKey(p.r,p.c);
+    bombs.push(p);
+    terrain.set(pk,"bomb");
+  }
+
+  for(const b of bombs){
+    for(const [dr,dc] of DIRS){
+      for(let k=1;k<=diff.blastRadius;k++){
+        const r=b.r+dr*k,c=b.c+dc*k;
+        if(r<0||c<0||r>=rows||c>=cols||grid[r][c]==="#") break;
+        const pk=posKey(r,c);
+        if(reserved.has(pk)||terrain.get(pk)==="bomb") continue;
+        terrain.set(pk,"blast");
+      }
+    }
+  }
+
+  return {grid,terrain,start,exit,key:keyCell,rows,cols,bombs,difficulty:$("difficulty").value,size:$("size").value};
+}
+
+function cellCost(w,r,c){
+  const t=w.terrain.get(posKey(r,c));
+  if(t==="crate") return COST.crate;
+  if(t==="bomb") return COST.bomb;
+  if(t==="blast") return COST.blast;
+  return COST.floor;
+}
+
+function walkable(w,r,c){
+  return r>=0&&c>=0&&r<w.rows&&c<w.cols&&w.grid[r][c]!=="#";
+}
+
+function heuristic(w,n){
+  if(n.hasKey) return manhattan(n,w.exit);
+  return manhattan(n,w.key)+manhattan(w.key,w.exit);
+}
+
+function pathFrom(parent,goalStateKey){
+  const out=[]; let k=goalStateKey;
+  while(k!==null&&k!==undefined){
+    const [r,c,kk]=k.split(",").map(Number);
+    out.push({r,c,hasKey:!!kk});
+    k=parent.get(k);
+  }
+  return out.reverse();
+}
+
+function frontierPreview(type,frontier,w){
+  let a=frontier.slice();
+  if(type==="dfs") a=a.slice().reverse();
+  if(type==="astar") a.sort((x,y)=>(x.g+x.h)-(y.g+y.h)||(x.h-y.h)||(x.order-y.order));
+  return a.slice(0,8).map(n=>({r:n.r,c:n.c,g:n.g,h:n.h,f:n.g+n.h,hasKey:n.hasKey}));
+}
+
+function search(type,w,captureTrace=true){
+  const t0=performance.now();
+  const start={r:w.start.r,c:w.start.c,hasKey:(w.start.r===w.key.r&&w.start.c===w.key.c)};
+  const startK=stateKey(start.r,start.c,start.hasKey);
+  const expanded=[];
+  const trace=[];
+  let path=[],maxFrontier=1;
+
+  if(type==="dfs"||type==="bfs"){
+    const frontier=[{...start,g:0,h:heuristic(w,start),order:0}];
+    const seen=new Set([startK]);
+    const parent=new Map([[startK,null]]);
+    let order=1;
+
+    while(frontier.length){
+      const n=type==="bfs"?frontier.shift():frontier.pop();
+      expanded.push({r:n.r,c:n.c,hasKey:n.hasKey,g:n.g,h:n.h,f:n.g+n.h});
+      if(n.r===w.exit.r&&n.c===w.exit.c&&n.hasKey){
+        path=pathFrom(parent,stateKey(n.r,n.c,n.hasKey));
+        if(captureTrace) trace.push({expanded:expanded[expanded.length-1],frontier:frontierPreview(type,frontier,w)});
+        break;
+      }
+      for(const [dr,dc] of DIRS){
+        const nr=n.r+dr,nc=n.c+dc;
+        if(!walkable(w,nr,nc)) continue;
+        const gotKey=n.hasKey||(nr===w.key.r&&nc===w.key.c);
+        const kk=stateKey(nr,nc,gotKey);
+        if(seen.has(kk)) continue;
+        seen.add(kk);
+        parent.set(kk,stateKey(n.r,n.c,n.hasKey));
+        const g=n.g+cellCost(w,nr,nc);
+        const obj={r:nr,c:nc,hasKey:gotKey,g,h:heuristic(w,{r:nr,c:nc,hasKey:gotKey}),order:order++};
+        frontier.push(obj);
+      }
+      maxFrontier=Math.max(maxFrontier,frontier.length);
+      if(captureTrace) trace.push({expanded:expanded[expanded.length-1],frontier:frontierPreview(type,frontier,w)});
+    }
+  }else{
+    let order=0;
+    const open=[{...start,g:0,h:heuristic(w,start),order:order++}];
+    const bestG=new Map([[startK,0]]);
+    const parent=new Map([[startK,null]]);
+    const closed=new Set();
+
+    while(open.length){
+      let best=0;
+      for(let i=1;i<open.length;i++){
+        const a=open[i],b=open[best],fa=a.g+a.h,fb=b.g+b.h;
+        if(fa<fb||(fa===fb&&(a.h<b.h||(a.h===b.h&&a.order<b.order)))) best=i;
+      }
+      const n=open.splice(best,1)[0];
+      const nk=stateKey(n.r,n.c,n.hasKey);
+      if(closed.has(nk)||n.g!==bestG.get(nk)) continue;
+      closed.add(nk);
+      expanded.push({r:n.r,c:n.c,hasKey:n.hasKey,g:n.g,h:n.h,f:n.g+n.h});
+      if(n.r===w.exit.r&&n.c===w.exit.c&&n.hasKey){
+        path=pathFrom(parent,nk);
+        if(captureTrace) trace.push({expanded:expanded[expanded.length-1],frontier:frontierPreview("astar",open,w)});
+        break;
+      }
+      for(const [dr,dc] of DIRS){
+        const nr=n.r+dr,nc=n.c+dc;
+        if(!walkable(w,nr,nc)) continue;
+        const gotKey=n.hasKey||(nr===w.key.r&&nc===w.key.c);
+        const kk=stateKey(nr,nc,gotKey);
+        const ng=n.g+cellCost(w,nr,nc);
+        if(ng<(bestG.has(kk)?bestG.get(kk):Infinity)){
+          bestG.set(kk,ng);
+          parent.set(kk,nk);
+          open.push({r:nr,c:nc,hasKey:gotKey,g:ng,h:heuristic(w,{r:nr,c:nc,hasKey:gotKey}),order:order++});
+        }
+      }
+      maxFrontier=Math.max(maxFrontier,open.length);
+      if(captureTrace) trace.push({expanded:expanded[expanded.length-1],frontier:frontierPreview("astar",open,w)});
+    }
+  }
+
+  let cost=0;
+  for(let i=1;i<path.length;i++) cost+=cellCost(w,path[i].r,path[i].c);
+  return {
+    type,expanded,trace,path,nodes:expanded.length,
+    steps:path.length?path.length-1:0,cost:path.length?cost:Infinity,
+    time:performance.now()-t0,maxFrontier
+  };
+}
+
+function dijkstra(w){
+  const t0=performance.now();
+  const start={r:w.start.r,c:w.start.c,hasKey:false};
+  const sk=stateKey(start.r,start.c,false);
+  const open=[{...start,g:0,order:0}],bestG=new Map([[sk,0]]),closed=new Set();
+  let order=1,nodes=0;
+  while(open.length){
+    let best=0;
+    for(let i=1;i<open.length;i++) if(open[i].g<open[best].g||(open[i].g===open[best].g&&open[i].order<open[best].order)) best=i;
+    const n=open.splice(best,1)[0],nk=stateKey(n.r,n.c,n.hasKey);
+    if(closed.has(nk)||n.g!==bestG.get(nk)) continue;
+    closed.add(nk);nodes++;
+    if(n.r===w.exit.r&&n.c===w.exit.c&&n.hasKey) return {cost:n.g,nodes,time:performance.now()-t0};
+    for(const [dr,dc] of DIRS){
+      const nr=n.r+dr,nc=n.c+dc;if(!walkable(w,nr,nc))continue;
+      const got=n.hasKey||(nr===w.key.r&&nc===w.key.c),kk=stateKey(nr,nc,got),ng=n.g+cellCost(w,nr,nc);
+      if(ng<(bestG.has(kk)?bestG.get(kk):Infinity)){bestG.set(kk,ng);open.push({r:nr,c:nc,hasKey:got,g:ng,order:order++});}
+    }
+  }
+  return {cost:Infinity,nodes,time:performance.now()-t0};
+}
+
+function tileSize(w){ return Math.floor(Math.min(900/w.cols,560/w.rows)); }
+function rect(x,y,w,h,color){ctx.fillStyle=color;ctx.fillRect(x,y,w,h)}
+function floorTile(x,y,s){
+  rect(x,y,s,s,"#1b2232");
+  ctx.strokeStyle="#283247";ctx.lineWidth=1;ctx.strokeRect(x+.5,y+.5,s-1,s-1);
+}
+function wallTile(x,y,s){
+  rect(x,y,s,s,"#505b78");rect(x+3,y+3,s-6,s-6,"#66728f");
+  ctx.strokeStyle="#3a435c";ctx.lineWidth=Math.max(1,s*.06);
+  ctx.beginPath();ctx.moveTo(x+3,y+s*.5);ctx.lineTo(x+s-3,y+s*.5);ctx.moveTo(x+s*.5,y+3);ctx.lineTo(x+s*.5,y+s-3);ctx.stroke();
+}
+function crateTile(x,y,s){
+  floorTile(x,y,s);rect(x+4,y+4,s-8,s-8,"#9a6b3a");
+  ctx.strokeStyle="#cf9556";ctx.lineWidth=Math.max(1,s*.05);ctx.strokeRect(x+5,y+5,s-10,s-10);
+  ctx.beginPath();ctx.moveTo(x+7,y+7);ctx.lineTo(x+s-7,y+s-7);ctx.moveTo(x+s-7,y+7);ctx.lineTo(x+7,y+s-7);ctx.stroke();
+}
+function bombTile(x,y,s){
+  rect(x,y,s,s,"#6d5500");
+  ctx.fillStyle="#101115";ctx.beginPath();ctx.arc(x+s*.5,y+s*.56,s*.23,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle="#ffd54d";ctx.lineWidth=Math.max(1,s*.045);
+  ctx.beginPath();ctx.moveTo(x+s*.58,y+s*.33);ctx.quadraticCurveTo(x+s*.7,y+s*.16,x+s*.81,y+s*.25);ctx.stroke();
+  ctx.fillStyle="#ffd54d";ctx.fillRect(x+s*.79,y+s*.2,Math.max(2,s*.06),Math.max(2,s*.06));
+}
+function blastTile(x,y,s){
+  rect(x,y,s,s,"#8e3125");
+  ctx.fillStyle="#ffcf42";ctx.fillRect(x+s*.44,y+2,s*.12,s-4);ctx.fillRect(x+2,y+s*.44,s-4,s*.12);
+  ctx.fillStyle="#ff7b2f";ctx.fillRect(x+s*.34,y+s*.34,s*.32,s*.32);
+}
+function keyTile(x,y,s){
+  floorTile(x,y,s);ctx.strokeStyle="#ffe46f";ctx.lineWidth=Math.max(2,s*.09);
+  ctx.beginPath();ctx.arc(x+s*.38,y+s*.44,s*.15,0,Math.PI*2);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x+s*.49,y+s*.52);ctx.lineTo(x+s*.72,y+s*.72);ctx.lineTo(x+s*.72,y+s*.6);ctx.moveTo(x+s*.62,y+s*.63);ctx.lineTo(x+s*.7,y+s*.55);ctx.stroke();
+}
+function exitTile(x,y,s){
+  floorTile(x,y,s);rect(x+s*.24,y+s*.13,s*.52,s*.74,"#16774d");rect(x+s*.31,y+s*.19,s*.38,s*.68,"#27a96d");
+  ctx.fillStyle="#ffd54d";ctx.fillRect(x+s*.61,y+s*.52,Math.max(2,s*.05),Math.max(2,s*.05));
+}
+function bomberTile(x,y,s){
+  floorTile(x,y,s);
+  ctx.fillStyle="#f2f1f5";ctx.fillRect(x+s*.3,y+s*.17,s*.4,s*.24);
+  ctx.fillStyle="#1a1b20";ctx.fillRect(x+s*.36,y+s*.24,Math.max(2,s*.05),Math.max(2,s*.05));ctx.fillRect(x+s*.58,y+s*.24,Math.max(2,s*.05),Math.max(2,s*.05));
+  ctx.fillStyle="#e9ad88";ctx.fillRect(x+s*.35,y+s*.41,s*.3,s*.22);
+  ctx.fillStyle="#4b70cf";ctx.fillRect(x+s*.29,y+s*.62,s*.42,s*.17);
+  ctx.fillStyle="#d64f4f";ctx.fillRect(x+s*.28,y+s*.79,s*.17,s*.08);ctx.fillRect(x+s*.55,y+s*.79,s*.17,s*.08);
+}
+function draw(){
+  if(!world) return;
+  const s=tileSize(world);cv.width=s*world.cols;cv.height=s*world.rows;
+  rect(0,0,cv.width,cv.height,"#080a11");
+  for(let r=0;r<world.rows;r++)for(let c=0;c<world.cols;c++){
+    const x=c*s,y=r*s,pk=posKey(r,c),cell=world.grid[r][c];
+    if(cell==="#") wallTile(x,y,s);
+    else{
+      const t=world.terrain.get(pk);
+      if(t==="crate") crateTile(x,y,s);
+      else if(t==="bomb") bombTile(x,y,s);
+      else if(t==="blast") blastTile(x,y,s);
+      else floorTile(x,y,s);
+
+      if(visited.has(pk)){ctx.fillStyle="rgba(103,183,255,.26)";ctx.fillRect(x+2,y+2,s-4,s-4)}
+      if(frontierSet.has(pk)){ctx.fillStyle="rgba(255,213,77,.30)";ctx.fillRect(x+3,y+3,s-6,s-6)}
+      if(pathSet.has(pk)){ctx.fillStyle="rgba(112,230,167,.56)";ctx.fillRect(x+4,y+4,s-8,s-8)}
+    }
+  }
+
+  // Objetos de misión por encima de las capas.
+  if(!(human&&humanKey)) keyTile(world.key.c*s,world.key.r*s,s);
+  exitTile(world.exit.c*s,world.exit.r*s,s);
+
+  const pos=human&&humanPos?humanPos:world.start;
+  bomberTile(pos.c*s,pos.r*s,s);
+
+  if($("showF").checked && currentFrontierPreview.length && s>=24){
+    ctx.font=`${Math.max(7,Math.floor(s*.22))}px Courier New`;
+    ctx.textAlign="center";ctx.textBaseline="bottom";
+    for(const n of currentFrontierPreview.slice(0,5)){
+      const x=n.c*s+s/2,y=n.r*s+s-2;
+      ctx.fillStyle="#fff4b5";ctx.fillText(`f${n.f}`,x,y);
+    }
+  }
+}
+
+function structureText(type){
+  if(type==="dfs") return ["Pila (LIFO)","DFS toma el último nodo agregado a la frontera."];
+  if(type==="bfs") return ["Cola (FIFO)","BFS toma el nodo más antiguo de la frontera."];
+  return ["Cola de prioridad","A* toma el nodo con menor f = g + h."];
+}
+function updateStructure(){
+  const [badge,info]=structureText($("algorithm").value);
+  $("structureBadge").textContent=badge;$("liveInfo").textContent=info;
+}
+function updateFrontierTable(preview=[]){
+  currentFrontierPreview=preview;
+  $("frontierBody").innerHTML=preview.length?preview.map((n,i)=>`
+    <tr class="frontier-row ${i===0?"next":""}">
+      <td>(${n.r},${n.c})</td><td class="ghf">${n.g}</td><td class="ghf">${n.h}</td><td class="ghf">${n.f}</td><td>${n.hasKey?"Sí":"No"}</td>
+    </tr>`).join(""):`<tr><td colspan="5">Frontera vacía</td></tr>`;
+  document.querySelectorAll(".ghf").forEach(el=>el.style.display=$("showF").checked?"table-cell":"none");
+}
+function stopAnim(){if(animTimer){clearInterval(animTimer);animTimer=null}}
+function clearSearchViz(){
+  stopAnim();searchResult=null;animIndex=0;visited.clear();frontierSet.clear();pathSet.clear();currentFrontierPreview=[];updateFrontierTable([]);
+  $("expandedNow").textContent="Aún no se ha expandido ningún nodo.";
+}
+function resetHuman(){
+  human=false;humanPos=null;humanKey=false;humanSteps=0;humanCost=0;
+  $("manualPanel").hidden=true;$("manual").classList.remove("active");
+}
+function setStats(r){
+  $("nodes").textContent=r?r.nodes:"0";$("steps").textContent=r?r.steps:"—";
+  $("cost").textContent=r?(Number.isFinite(r.cost)?r.cost:"—"):"—";
+  $("time").textContent=r?r.time.toFixed(3):"—";$("frontierMax").textContent=r?r.maxFrontier:"—";
+}
+function resetAll(keepTables=false){
+  clearSearchViz();resetHuman();setStats(null);$("message").textContent="";$("message").className="msg";
+  if(!keepTables)$("compare").innerHTML="";draw();
+}
+function generate(){
+  world=generateWorld();
+  resetAll();
+  const diff=DIFF[$("difficulty").value];
+  $("bombPreset").textContent=`${$("difficulty").selectedOptions[0].textContent} · ${diff.bombs} bombas`;
+  $("message").textContent=`Mapa nuevo · ${world.cols}×${world.rows} · ${world.bombs.length} bombas · laberinto cerrado.`;
+}
+function prepareResult(r){
+  clearSearchViz();resetHuman();searchResult=r;setStats({nodes:0,steps:0,cost:0,time:r.time,maxFrontier:r.maxFrontier});
+  $("message").textContent="";draw();
+}
+function showTraceStep(){
+  if(!searchResult) return;
+  if(animIndex<searchResult.trace.length){
+    const t=searchResult.trace[animIndex++];
+    const e=t.expanded;visited.add(posKey(e.r,e.c));
+    frontierSet=new Set(t.frontier.map(n=>posKey(n.r,n.c)));
+    updateFrontierTable(t.frontier);
+    $("expandedNow").textContent=`Expandido: (${e.r},${e.c}) · g=${e.g} · h=${e.h} · f=${e.f} · llave=${e.hasKey?"sí":"no"}`;
+    $("nodes").textContent=animIndex;draw();
+  }else if(pathSet.size===0){
+    for(const p of searchResult.path) pathSet.add(posKey(p.r,p.c));
+    frontierSet.clear();currentFrontierPreview=[];updateFrontierTable([]);
+    setStats(searchResult);
+    $("message").textContent=`${label(searchResult.type)} terminó: ${searchResult.nodes} nodos · ${searchResult.steps} pasos · costo ${searchResult.cost}.`;
+    $("message").className="msg good";draw();
+  }
+}
+function runSearch(){
+  const r=search($("algorithm").value,world,true);prepareResult(r);
+  const delay=parseInt($("speed").value,10)||55;
+  animTimer=setInterval(()=>{
+    if(animIndex>=r.trace.length){stopAnim();showTraceStep()}else showTraceStep();
+  },delay);
+}
+function stepSearch(){
+  if(!searchResult) prepareResult(search($("algorithm").value,world,true));
+  showTraceStep();
+}
+function runAll(){
+  clearSearchViz();resetHuman();setStats(null);draw();
+  const optimum=dijkstra(world).cost;
+  const results=["dfs","bfs","astar"].map(t=>search(t,world,false));
+  $("compare").innerHTML=results.map(r=>`
+    <tr><td>${label(r.type)}</td><td>${r.nodes}</td><td>${r.steps}</td><td>${r.cost}</td><td>${r.time.toFixed(3)} ms</td><td>${r.cost===optimum?"Sí":"No"}</td></tr>
+  `).join("");
+  const best=Math.min(...results.map(r=>r.cost));
+  $("message").textContent=`Costo óptimo: ${optimum}. Mejor resultado obtenido: ${best}.`;
+  $("message").className="msg good";
+}
+function benchmark5(){
+  const types=["dfs","bfs","astar"],acc=Object.fromEntries(types.map(t=>[t,{n:0,c:0,t:0}]));
+  for(let i=0;i<5;i++){
+    const w=generateWorld();
+    for(const type of types){
+      let last=null,total=0,reps=15;
+      for(let j=0;j<reps;j++){last=search(type,w,false);total+=last.time}
+      acc[type].n+=last.nodes;acc[type].c+=last.cost;acc[type].t+=total/reps;
+    }
+  }
+  $("bench").innerHTML=types.map(type=>{
+    const a=acc[type];
+    return `<tr><td>${label(type)}</td><td>${(a.n/5).toFixed(1)}</td><td>${(a.c/5).toFixed(1)}</td><td>${(a.t/5).toFixed(3)} ms</td></tr>`;
+  }).join("");
+  const avg=Object.fromEntries(types.map(t=>[t,{n:acc[t].n/5,c:acc[t].c/5}]));
+  const best=types.slice().sort((a,b)=>(avg[a].c-avg[b].c)||(avg[a].n-avg[b].n))[0];
+  $("verdict").innerHTML=`Con esta configuración, <b>${label(best)}</b> obtiene el mejor costo promedio; usa estos datos para justificar el veredicto final.`;
+}
+function tournament20(){
+  const types=["dfs","bfs","astar"];
+  const acc=Object.fromEntries(types.map(t=>[t,{n:0,c:0,opt:0,wins:0}]));
+  $("tourProgress").style.width="0%";
+  let i=0;
+  function next(){
+    if(i>=20){
+      $("tourBody").innerHTML=types.map(t=>{
+        const a=acc[t];
+        return `<tr><td>${label(t)}</td><td>${(a.n/20).toFixed(1)}</td><td>${(a.c/20).toFixed(1)}</td><td>${(a.opt/20*100).toFixed(0)}%</td><td>${a.wins}</td></tr>`;
+      }).join("");
+      $("tourProgress").style.width="100%";
+      return;
+    }
+    const w=generateWorld(),opt=dijkstra(w).cost;
+    const results=types.map(t=>search(t,w,false));
+    for(const r of results){
+      acc[r.type].n+=r.nodes;acc[r.type].c+=r.cost;
+      if(r.cost===opt)acc[r.type].opt++;
+    }
+    const minN=Math.min(...results.map(r=>r.nodes));
+    results.filter(r=>r.nodes===minN).forEach(r=>acc[r.type].wins++);
+    i++;
+    $("tourProgress").style.width=`${i/20*100}%`;
+    setTimeout(next,0);
+  }
+  next();
+}
+
+function startManual(){
+  clearSearchViz();setStats(null);$("compare").innerHTML="";
+  human=true;humanPos={...world.start};humanKey=false;humanSteps=0;humanCost=0;
+  $("manualPanel").hidden=false;$("manual").classList.add("active");
+  $("message").textContent="Modo manual activo: consigue la llave y después escapa.";
+  $("message").className="msg";draw();
+}
+function manualMove(dr,dc){
+  if(!human) return;
+  const nr=humanPos.r+dr,nc=humanPos.c+dc;
+  if(!walkable(world,nr,nc)){
+    $("message").textContent="Pared sólida: no puedes pasar.";$("message").className="msg bad";return;
+  }
+  humanPos={r:nr,c:nc};humanSteps++;humanCost+=cellCost(world,nr,nc);
+  if(nr===world.key.r&&nc===world.key.c&&!humanKey){
+    humanKey=true;$("message").textContent="🔑 ¡Llave conseguida! Ahora ve a la salida.";$("message").className="msg good";
+  }else if(nr===world.exit.r&&nc===world.exit.c){
+    if(!humanKey){
+      $("message").textContent="🚪 La salida está cerrada. Primero necesitas la llave.";$("message").className="msg bad";
+    }else{
+      const opt=dijkstra(world).cost;
+      $("message").textContent=`¡ESCAPASTE! Tu costo: ${humanCost} · óptimo: ${opt} · diferencia: ${humanCost-opt}.`;
+      $("message").className="msg good";human=false;$("manual").classList.remove("active");
+    }
+  }else{
+    $("message").textContent=`Manual · ${humanSteps} pasos · costo ${humanCost} · llave ${humanKey?"sí":"no"}`;$("message").className="msg";
+  }
+  $("nodes").textContent="—";$("steps").textContent=humanSteps;$("cost").textContent=humanCost;$("time").textContent="—";$("frontierMax").textContent="—";draw();
+}
+
+$("generate").addEventListener("click",generate);
+$("difficulty").addEventListener("change",generate);
+$("size").addEventListener("change",generate);
+$("algorithm").addEventListener("change",()=>{updateStructure();resetAll(true)});
+$("run").addEventListener("click",runSearch);
+$("step").addEventListener("click",stepSearch);
+$("all").addEventListener("click",runAll);
+$("reset").addEventListener("click",()=>resetAll());
+$("manual").addEventListener("click",()=>{if(human)resetAll(true);else startManual()});
+$("benchmark").addEventListener("click",benchmark5);
+$("tournament").addEventListener("click",tournament20);
+$("showF").addEventListener("change",()=>{updateFrontierTable(currentFrontierPreview);draw()});
+document.querySelectorAll("[data-move]").forEach(btn=>btn.addEventListener("click",()=>{
+  const [dr,dc]=btn.dataset.move.split(",").map(Number);manualMove(dr,dc);
+}));
+document.addEventListener("keydown",e=>{
+  if(!human) return;
+  const tag=(e.target.tagName||"").toLowerCase();if(["input","select","textarea"].includes(tag))return;
+  const map={ArrowUp:[-1,0],w:[-1,0],W:[-1,0],ArrowRight:[0,1],d:[0,1],D:[0,1],ArrowDown:[1,0],s:[1,0],S:[1,0],ArrowLeft:[0,-1],a:[0,-1],A:[0,-1]};
+  if(map[e.key]){e.preventDefault();manualMove(...map[e.key])}
+});
+
+updateStructure();
+generate();
+})();
+</script>
+</body>
+</html>
